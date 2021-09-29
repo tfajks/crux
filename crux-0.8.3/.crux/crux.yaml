@@ -38,12 +38,12 @@ parameters:
 
   - name: kubernetes_service_connection
     displayName: K8 Connection
-    default: k
+    default: _
     type: string
 
   - name: arm_service_connection
     displayName: ARM Connection
-    default: m
+    default: _
     type: string
 
 variables:
