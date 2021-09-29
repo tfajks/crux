@@ -1,0 +1,39 @@
+name: $(BuildID)
+trigger: none
+
+parameters:
+  - name: _crux_kubernetes_service_connection
+    default: k8
+  - name: _crux_exisiting_cluster_namespace
+    default: default
+
+variables:
+  _crux_sleep: 10
+
+jobs:
+  - job: Stop_Tests
+    displayName: Stop Tests
+    pool:
+      vmImage: 'ubuntu-latest'
+    timeoutInMinutes: 5
+    steps:
+
+    - task: Kubernetes@1
+      displayName: Login to cluster
+      inputs:
+        command: login
+        connectionType: Kubernetes Service Connection
+        kubernetesServiceEndpoint:  ${{ parameters._crux_kubernetes_service_connection }}
+
+    - bash: |
+        master_pod=$(kubectl get po -n ${{ parameters._crux_exisiting_cluster_namespace }} | grep jmeter-master | awk '{print $1}')
+        if [ -z "$master_pod" ];then
+          echo "##[warning] No JMeter tests are running at the moment"
+          echo "##vso[task.complete result=SucceededWithIssues;]DONE"
+          echo "##vso[task.setvariable variable=scale]false"
+        else
+          kubectl -n ${{ parameters._crux_exisiting_cluster_namespace }} exec -ti $master_pod bash /jmeter/apache-jmeter-5.4/bin/stoptest.sh
+          echo "##[command] _crux_sleep $(_crux_sleep)"
+          sleep $(_crux_sleep)
+        fi
+      displayName: Stop JMeter tests

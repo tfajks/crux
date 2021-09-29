@@ -1,0 +1,77 @@
+#Author: Gabriel Starczewski
+name: $(BuildID)
+resources:
+  repositories:
+    - repository: crux
+      type: github
+      name: ObjectivityLtd/crux
+      ref: refs/heads/release/0.8.3
+      endpoint: crux
+
+parameters:
+  - name: mode
+    displayName: Where to execute tests?
+    default: on_build_agent
+    values:
+      - on_build_agent
+      - on_aks
+      - on_aks_pool_created_for_each_test_run
+      - on_aks_created_for_each_test_run
+      - tests
+
+  - name: jmx
+    displayName: JMeter scenario file
+    default: .crux/test/script/bing.jmx
+    type: string
+
+  - name: jmeter_args
+    displayName: JMeter arguments passed to tests
+    default: "-Jthreads=3 -Jloops=1 -JrampUp=1 -Jwait_ms=1000 -Jdata_dir=/shared"
+    values: #use -J for non-AKS and -G for AKS
+      - "-Jthreads=3 -Jloops=1 -JrampUp=1 -Jwait_ms=1000 -Jdata_dir=/shared"
+      - "-Gthreads=3 -Gloops=1 -GrampUp=1 -Gwait_ms=1000 -Gdata_dir=/shared"
+  #valid when using kubernetes
+  - name: jmeter_slaves
+    displayName: JMeter slaves number to run test
+    default: 1
+    type: number
+
+  - name: kubernetes_service_connection
+    displayName: K8 Connection
+    default: k
+    type: string
+
+  - name: arm_service_connection
+    displayName: ARM Connection
+    default: m
+    type: string
+
+variables:
+
+
+  #infrastructure details
+  _crux_cluster_resource_group: jmeter-group #resource group name for arm_service_connection
+  _crux_cluster_node_size: Standard_D2_v2 #size of nodes in cluster when creating them dynamically (pool, new cluster)
+  _crux_cluster_name: k8 #cluster name if using an existing cluster
+  _crux_cluster_default_node_number: 2 #default node number for dynamic cluster system pool
+
+  #tests resources
+  _crux_properties_file_relative: .crux/test/config/crux.properties
+  _crux_thresholds_file_relative: .crux/test/config/thresholds.properties
+  _crux_workbooks_file_relative: .crux/test/config/workbooks.properties
+  _crux_data_dir_relative: .crux/test/test_data
+
+  #reserved, do not modify unless you know what you are doing, turning parameters into vars for global scope
+  _crux_cluster_jmeter_slaves_replicas: ${{ parameters.jmeter_slaves }}
+  _crux_jmeter_args: ${{ parameters.jmeter_args }}
+  _crux_jmeter_scenario_relative: ${{ parameters.jmx }}
+  _crux_arm_service_connection : ${{ parameters.arm_service_connection }}
+  _crux_kubernetes_service_connection: ${{ parameters.kubernetes_service_connection }}
+  _crux_cluster_deployment_namespace: crux$(Build.BuildID)
+
+jobs:
+  - template: .template/crux.template.yaml
+    parameters:
+      mode: ${{ parameters.mode }}
+      arm_service_connection: ${{ parameters.arm_service_connection }}
+      kubernetes_service_connection: ${{ parameters.kubernetes_service_connection }}
